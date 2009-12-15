@@ -37,7 +37,11 @@ def main():
                       
     parser.add_option("--use-computer-timestamps", action='store_true',
                       help="use computer clock instead of camera clock for timestamps", dest='use_comp_time')
-                      
+
+    parser.add_option("--run-time", type="int",
+                      help="time (in seconds) to run (default = infinite)",
+                      default = None, dest='run_time')
+                                            
     (options, args) = parser.parse_args()
 
     if options.roi is not None:
@@ -55,7 +59,8 @@ def main():
          max_frames = options.frames,
          trigger_mode=options.trigger_mode,
          roi=options.roi,
-         use_comp_time=options.use_comp_time)
+         use_comp_time=options.use_comp_time,
+         run_time=options.run_time)
 
 def save_func( fly_movie, save_queue ):
     while 1:
@@ -71,6 +76,7 @@ def doit(device_num=0,
          trigger_mode=None,
          roi=None,
          use_comp_time=False,
+         run_time=None,
          ):
     num_modes = cam_iface.get_num_modes(device_num)
     for this_mode_num in range(num_modes):
@@ -118,9 +124,10 @@ def doit(device_num=0,
         actual_roi = cam.get_frame_roi()
         if roi != actual_roi:
             raise ValueError("could not set ROI. Actual ROI is %s."%(actual_roi,))
+    start_time = time.time()
     frametick = 0
     framecount = 0
-    last_fps_print = time.time()
+    last_fps_print = start_time
     last_fno = None
     while 1:
         try:
@@ -135,7 +142,7 @@ def doit(device_num=0,
             continue
 
         timestamp = cam.get_last_timestamp()
-
+        now = time.time()
         fno = cam.get_last_framenumber()
         if last_fno is not None:
             skip = (fno-last_fno)-1
@@ -146,7 +153,7 @@ def doit(device_num=0,
     ##        time.sleep(10.0)
     ##        print 'wake'
         last_fno=fno
-        now = time.time()
+        
         sys.stdout.write('.')
         sys.stdout.flush()
         frametick += 1
@@ -169,6 +176,12 @@ def doit(device_num=0,
 
         if max_frames:
             if framecount >= max_frames:
+                print "\n"
+                break
+                
+        if run_time:
+            if now - start_time >= run_time:
+                print "\n"
                 break
 
 if __name__=='__main__':

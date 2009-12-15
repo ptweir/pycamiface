@@ -26,7 +26,7 @@ def main():
 
     parser.add_option("--save", action='store_true',
                       help="save frames to .fmf")
-
+                  
     parser.add_option("--trigger-mode", type="int",
                       help="set trigger mode",
                       default=None, dest='trigger_mode')
@@ -34,7 +34,10 @@ def main():
     parser.add_option("--roi", type="string",
                       help="set camera region of interest (left,bottom,width,height)",
                       default=None)
-
+                      
+    parser.add_option("--use-computer-timestamps", action='store_true',
+                      help="use computer clock instead of camera clock for timestamps", dest='use_comp_time')
+                      
     (options, args) = parser.parse_args()
 
     if options.roi is not None:
@@ -51,7 +54,8 @@ def main():
          save=options.save,
          max_frames = options.frames,
          trigger_mode=options.trigger_mode,
-         roi=options.roi)
+         roi=options.roi,
+         use_comp_time=options.use_comp_time)
 
 def save_func( fly_movie, save_queue ):
     while 1:
@@ -66,6 +70,7 @@ def doit(device_num=0,
          max_frames=None,
          trigger_mode=None,
          roi=None,
+         use_comp_time=False,
          ):
     num_modes = cam_iface.get_num_modes(device_num)
     for this_mode_num in range(num_modes):
@@ -153,9 +158,14 @@ def doit(device_num=0,
             print "%.1f fps"%fps
             last_fps_print = now
             frametick = 0
-
+            
+        if use_comp_time:
+            use_timestamp = now
+        else:
+            use_timestamp = timestamp
+            
         if save:
-            save_queue.put( (buf,timestamp) )
+            save_queue.put( (buf,use_timestamp) )
 
         if max_frames:
             if framecount >= max_frames:

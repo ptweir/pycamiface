@@ -12,6 +12,9 @@ import motmot.FlyMovieFormat.FlyMovieFormat as FlyMovieFormat
 import Queue
 import threading
 
+# progress bar
+from progressbar import ProgressBar, Percentage, Bar
+
 def main():
     usage = '%prog [options]'
 
@@ -38,9 +41,13 @@ def main():
     parser.add_option("--use-computer-timestamps", action='store_true',
                       help="use computer clock instead of camera clock for timestamps", dest='use_comp_time')
 
-    parser.add_option("--run-time", type="int",
+    parser.add_option("--run-time", type="float",
                       help="time (in seconds) to run (default = infinite)",
                       default = None, dest='run_time')
+                      
+    parser.add_option("--framerate", type="float",
+                      help="framerate (in frames/sec)",
+                      default = None)
                                             
     (options, args) = parser.parse_args()
 
@@ -60,7 +67,8 @@ def main():
          trigger_mode=options.trigger_mode,
          roi=options.roi,
          use_comp_time=options.use_comp_time,
-         run_time=options.run_time)
+         run_time=options.run_time,
+         framerate=options.framerate)
 
 def save_func( fly_movie, save_queue ):
     while 1:
@@ -77,6 +85,7 @@ def doit(device_num=0,
          roi=None,
          use_comp_time=False,
          run_time=None,
+         framerate=None,
          ):
     num_modes = cam_iface.get_num_modes(device_num)
     for this_mode_num in range(num_modes):
@@ -105,7 +114,9 @@ def doit(device_num=0,
         save_thread = threading.Thread( target=save_func, args=(fly_movie,save_queue))
         save_thread.setDaemon(True)
         save_thread.start()
-
+    if framerate is not None:
+        cam.set_framerate(framerate)
+        
     num_props = cam.get_num_camera_properties()
     #for i in range(num_props):
     #    print "property %d: %s"%(i,str(cam.get_camera_property_info(i)))
@@ -183,6 +194,6 @@ def doit(device_num=0,
             if now - start_time >= run_time:
                 print "\n"
                 break
-
+      
 if __name__=='__main__':
     main()

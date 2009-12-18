@@ -1,3 +1,4 @@
+from __future__ import division
 import pkg_resources
 import motmot.cam_iface.choose as cam_iface_choose
 
@@ -114,8 +115,19 @@ def doit(device_num=0,
         save_thread = threading.Thread( target=save_func, args=(fly_movie,save_queue))
         save_thread.setDaemon(True)
         save_thread.start()
+    ALLOWED_FRAMERATE_DEV = .5
+    MAX_FRAMERATE = 10000
+    low_framerate_mode = False
     if framerate is not None:
         cam.set_framerate(framerate)
+        actual_framerate = cam.get_framerate()
+        if framerate/actual_framerate < ALLOWED_FRAMERATE_DEV:
+            low_framerate_mode = True
+            cam.set_framerate(MAX_FRAMERATE)
+            actual_framerate = cam.get_framerate()
+            last_time = time.time()
+            ifi = framerate
+        
         
     num_props = cam.get_num_camera_properties()
     #for i in range(num_props):
@@ -172,7 +184,10 @@ def doit(device_num=0,
 
         t_diff = now-last_fps_print
         if t_diff > 5.0:
-            fps = frametick/t_diff
+            if not low_framerate_mode:
+                fps = frametick/t_diff
+            else:
+                fps = 1.0/ifi
             print "%.1f fps"%fps
             last_fps_print = now
             frametick = 0
@@ -183,7 +198,12 @@ def doit(device_num=0,
             use_timestamp = timestamp
             
         if save:
-            save_queue.put( (buf,use_timestamp) )
+            if not low_framerate_mode:
+                save_queue.put( (buf,use_timestamp) )
+            elif now - last_time >= 1.0/framerate - .5/actual_framerate:
+                save_queue.put( (buf,use_timestamp) )
+                ifi = now - last_time
+                last_time = now
 
         if max_frames:
             if framecount >= max_frames:

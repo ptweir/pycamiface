@@ -13,14 +13,14 @@ import motmot.FlyMovieFormat.FlyMovieFormat as FlyMovieFormat
 import Queue
 import threading
 
-# progress bar
-from progressbar import ProgressBar, Percentage, Bar
-
 def main():
     usage = '%prog [options]'
 
     parser = OptionParser(usage)
 
+    parser.add_option("--device-num", type="int",default = None,
+                      help="device number", dest='device_num')
+                      
     parser.add_option("--mode-num", type="int",default = None,
                       help="mode number")
 
@@ -62,7 +62,8 @@ def main():
 
     print 'options.mode_num',options.mode_num
 
-    doit(mode_num=options.mode_num,
+    doit(device_num=options.device_num,
+         mode_num=options.mode_num,
          save=options.save,
          max_frames = options.frames,
          trigger_mode=options.trigger_mode,
@@ -77,7 +78,7 @@ def save_func( fly_movie, save_queue ):
         frame,timestamp = fnt
         fly_movie.add_frame(frame,timestamp)
 
-def doit(device_num=0,
+def doit(device_num=None,
          mode_num=None,
          num_buffers=30,
          save=False,
@@ -88,6 +89,8 @@ def doit(device_num=0,
          run_time=None,
          framerate=None,
          ):
+    if device_num is None:
+        device_num = 0
     num_modes = cam_iface.get_num_modes(device_num)
     for this_mode_num in range(num_modes):
         mode_str = cam_iface.get_mode_string(device_num,this_mode_num)

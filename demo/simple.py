@@ -49,6 +49,10 @@ def main():
     parser.add_option("--framerate", type="float",
                       help="framerate (in frames/sec)",
                       default = None)
+                      
+    parser.add_option("--prefix", type="string",
+                      help="prefix for saved file",
+                      default = None)
                                             
     (options, args) = parser.parse_args()
 
@@ -70,7 +74,8 @@ def main():
          roi=options.roi,
          use_comp_time=options.use_comp_time,
          run_time=options.run_time,
-         framerate=options.framerate)
+         framerate=options.framerate,
+         prefix=options.prefix)
 
 def save_func( fly_movie, save_queue ):
     while 1:
@@ -88,6 +93,7 @@ def doit(device_num=None,
          use_comp_time=False,
          run_time=None,
          framerate=None,
+         prefix=None,
          ):
     if device_num is None:
         device_num = 0
@@ -104,11 +110,18 @@ def doit(device_num=None,
     print 'choosing mode %d'%(mode_num,)
 
     cam = cam_iface.Camera(device_num,num_buffers,mode_num)
+    
+    if prefix is not None and save is not True:
+        print 'saving file'
+        save = True
 
     if save:
         format = cam.get_pixel_coding()
         depth = cam.get_pixel_depth()
-        filename = time.strftime( 'simple%Y%m%d_%H%M%S.fmf' )
+        if prefix is not None:
+            filename = time.strftime( prefix + '%Y%m%d_%H%M%S.fmf' )
+        else:
+            filename = time.strftime( 'simple%Y%m%d_%H%M%S.fmf' )
         fly_movie = FlyMovieFormat.FlyMovieSaver(filename,
                                                  version=3,
                                                  format=format,

@@ -53,6 +53,10 @@ def main():
     parser.add_option("--prefix", type="string",
                       help="prefix for saved file",
                       default = None)
+                      
+    parser.add_option("--camera-properties", type="string",
+                      help="set camera properties to auto or onepush (lock at auto-chosen values)",
+                      default = None, dest='camera_properties')
                                             
     (options, args) = parser.parse_args()
 
@@ -75,7 +79,8 @@ def main():
          use_comp_time=options.use_comp_time,
          run_time=options.run_time,
          framerate=options.framerate,
-         prefix=options.prefix)
+         prefix=options.prefix,
+         camera_properties=options.camera_properties)
 
 def save_func( fly_movie, save_queue ):
     while 1:
@@ -94,6 +99,7 @@ def doit(device_num=None,
          run_time=None,
          framerate=None,
          prefix=None,
+         camera_properties=None
          ):
     if device_num is None:
         device_num = 0
@@ -143,12 +149,7 @@ def doit(device_num=None,
             actual_framerate = cam.get_framerate()
             last_time = time.time()
             ifi = framerate
-        
-        
-    num_props = cam.get_num_camera_properties()
-    #for i in range(num_props):
-    #    print "property %d: %s"%(i,str(cam.get_camera_property_info(i)))
-
+                
     n_trigger_modes = cam.get_num_trigger_modes()
     print "Trigger modes:"
     for i in range(n_trigger_modes):
@@ -156,13 +157,48 @@ def doit(device_num=None,
     if trigger_mode is not None:
         cam.set_trigger_mode_number( trigger_mode )
     print 'Using trigger mode %d'%(cam.get_trigger_mode_number())
-
+    
+    #----------start camera----------------
     cam.start_camera()
     if roi is not None:
         cam.set_frame_roi( *roi )
         actual_roi = cam.get_frame_roi()
         if roi != actual_roi:
             raise ValueError("could not set ROI. Actual ROI is %s."%(actual_roi,))
+    
+    num_props = cam.get_num_camera_properties()
+    if camera_properties is 'auto' or 'onepush':
+        for p in range(num_props):
+            if cam.get_camera_property_info(p)['has_auto_mode'] == 1:
+                cam.set_camera_property(p,cam.get_camera_property(p)[0],1) #set to auto mode
+                if cam.get_camera_property_info(p)['name'] == 'shutter':
+                    shp = p #shutter property number
+                    sh = cam.get_camera_property_info(p)['max_value']
+        start_time = time.time()
+        while time.time() < start_time + 1: # take frames for a second
+            try:
+                cam.grab_next_frame_blocking()
+                sh = min(sh,cam.get_camera_property(shp)[0]) # find minimum shutter
+            except cam_iface.FrameDataCorrupt:
+                print "corrupt frame"
+                continue
+        if camera_properties == 'onepush':
+            for p in range(num_props):
+                if cam.get_camera_property_info(p)['has_auto_mode'] == 1:
+                    if p == shp:
+                        cam.set_camera_property(p,sh,0)
+                        cam.set_camera_property(p,int(sh/2),0) # set shutter to half minimum in test period
+                    else:
+                        cam.set_camera_property(p,cam.get_camera_property(p)[0],0)
+                        cam.set_camera_property(p,cam.get_camera_property(p)[0],0)
+                    
+    for p in range(num_props):
+        if cam.get_camera_property_info(p)['has_auto_mode'] == 1:
+            print "%s = %d, auto = %s"%(cam.get_camera_property_info(p)['name'],cam.get_camera_property(p)[0],bool(cam.get_camera_property(p)[1]))
+        else:
+            print "%s = %d"%(cam.get_camera_property_info(p)['name'],cam.get_camera_property(p)[0])
+            
+    
     start_time = time.time()
     frametick = 0
     framecount = 0
